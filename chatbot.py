@@ -87,8 +87,11 @@ openalex = OpenAlex()
 #     print(group['key'])
 
 search_name = 'solar battery'
-grouped_concepts_list = openalex.get_list_of_concepts(search=search_name)
-# print(grouped_concepts_list)
+filters = {"is_oa": "true",
+           "type": "review",
+           "publication_year": 2013,
+           }
+grouped_concepts_list = openalex.get_list_of_works(search=search_name,pages=[1,20],filters=filters)
 
 # 收集生成器中的所有数据
 concepts_list = list(grouped_concepts_list)
