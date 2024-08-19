@@ -6,7 +6,7 @@ import json
 from diophila import OpenAlex
 openalex = OpenAlex()
 client = OpenAI(
-    api_key="*******", # 在这里将 MOONSHOT_API_KEY 替换为你从 Kimi 开放平台申请的 API Key
+    api_key="sk-106i1MhEY7PtQtNMYPwOly1pf2LuvTgxseX3XvF9pKrhoB0D", # 在这里将 MOONSHOT_API_KEY 替换为你从 Kimi 开放平台申请的 API Key
     base_url="https://api.moonshot.cn/v1",
 )
  
@@ -61,13 +61,15 @@ def get_paper(search):
     # print(search)
     grouped_concepts_list = openalex.get_list_of_works(search=search["search"],pages=[i for i in range(1, 2)],filters=search["filters"],sort={"relevance_score":"desc",})
     concepts_list = list(grouped_concepts_list)
-    title,doi=[],[]
+    title, doi = [], []
     for id in concepts_list[0]["results"]:
         title.append(id["title"])
         doi.append(id["doi"])
-    save={"title":title,"doi":doi}
+    save = {"title":title, "doi":doi}
     return save
  
+MAX_CALLS = 30  # 设置最大函数调用次数
+num_calls = 0  # 初始化调用计数器
 
 messages = [
     {"role": "system",
@@ -81,9 +83,13 @@ tool_map = {
     "get_paper": get_paper,
 }
 while finish_reason is None or finish_reason == "tool_calls":
+    if num_calls >= MAX_CALLS:  # 超过最大调用次数时候终止
+        break
+
     completion = client.chat.completions.create(
         model="moonshot-v1-8k",
         messages=messages,
+        tool_choice="auto",
         temperature=0.3,
         tools=tools,
     )
@@ -105,5 +111,20 @@ while finish_reason is None or finish_reason == "tool_calls":
                 "name": tool_call_name,
                 "content": json.dumps(tool_result), # <-- 我们约定使用字符串格式向 Kimi 大模型提交工具调用结果，因此在这里使用 json.dumps 将执行结果序列化成字符串
             })
- 
+            messages.append({"role": "user", "content": "请按相关性进行排序"} )
+    num_calls += 1
+
 print(choice.message.content) # <-- 在这里，我们才将模型生成的回复返回给用户
+
+print(messages)
+
+completion = client.chat.completions.create(
+        model="moonshot-v1-8k",
+        messages=messages,
+        temperature=0.3,
+        tools=tools,
+    )
+print(completion.choices[0].model_dump_json(indent=4))
+choice = completion.choices[0]
+
+print(choice.message.content)
